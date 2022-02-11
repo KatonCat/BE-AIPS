@@ -18,6 +18,9 @@ données du réseau */
 /* pour la gestion des erreurs */
 #include <errno.h>
 
+void puitUDP(int port, int lg_msg, int nb_msg); 
+void sourceUDP(int port, char* msg); 
+
 void main (int argc, char **argv)
 {
 	int c;
@@ -25,7 +28,11 @@ void main (int argc, char **argv)
 	extern int optind;
 	int nb_message = -1; /* Nb de messages à envoyer ou à recevoir, par défaut : 10 en émission, infini en réception */
 	int source = -1 ; /* 0=puits, 1=source */
-	while ((c = getopt(argc, argv, "pn:s")) != -1) {
+	int port = atoi(argv[argc-1]);
+	int proto = 1; /* 1 pour TCP et 0  pour UDP */
+	int lg_msgs = 30; 
+
+	while ((c = getopt(argc, argv, "upn:s")) != -1) {
 		switch (c) {
 		case 'p':
 			if (source == 1) {
@@ -47,6 +54,9 @@ void main (int argc, char **argv)
 			nb_message = atoi(optarg);
 			break;
 
+		case 'u':
+			proto = 0; 
+			break; 
 		default:
 			printf("usage: cmd [-p|-s][-n ##]\n");
 			break;
@@ -58,9 +68,11 @@ void main (int argc, char **argv)
 		exit(1) ;
 	}
 
-	if (source == 1)
+	char * destination; 
+	if (source == 1) {
 		printf("on est dans le source\n");
-	else
+		destination = argv[argc-2]; 
+	} else
 		printf("on est dans le puits\n");
 
 	if (nb_message != -1) {
@@ -76,5 +88,91 @@ void main (int argc, char **argv)
 		printf("nb de tampons à envoyer = infini\n");
 
 	}
+
+	if (proto == 0) {
+		if (source == 0)
+			puitUDP(port, lg_msgs, nb_message); 
+	}
 }
 
+void construire_message(char *message, char motif, int lg)
+{
+	int i;
+	for (i=0;i<lg;i++) 
+		message[i] = motif;
+}
+
+void afficher_message(char *message, int lg) 
+{
+	int i;
+	printf("message construit : ");
+	for (i=0;i<lg;i++) 
+		printf("%c", message[i]); printf("\n");
+}
+
+void puitUDP(int port, int lg_msg, int nb_msg)
+{
+	
+
+	
+
+	/* Création socket udp (source & puits) */
+	int socklocal = socket(AF_INET,SOCK_DGRAM,0);
+
+	
+
+	/* Configuration : sockaddr_in */
+	struct sockaddr_in structs_local;
+	structs_local.sin_family = AF_INET;
+	structs_local.sin_port = htons(port);
+	structs_local.sin_addr.s_addr= INADDR_ANY;
+	
+
+
+	int lg_adr = sizeof(structs_local);
+	/* puits ==> réception & source ==> envoie*/
+	bind(socklocal,(struct sockaddr*)&structs_local, lg_adr);
+	char * msg;
+	msg = malloc(lg_msg);
+
+	struct sockaddr_in addr_em;
+	int lg_adr_em = sizeof(addr_em); 
+	
+	/* source */
+	// construire le message
+	for (int i=0; i < nb_msg; i++)
+	{
+		recvfrom(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
+		afficher_message(msg, lg_msg);
+	} 
+	/* Puits */
+	
+	
+}
+
+void sourceUDP(int port, char* msg)
+{
+	int socklocal = socket(AF_INET,SOCK_DGRAM,0);
+
+	struct sockaddr_in addr_em;
+	structs_local.sin_family = AF_INET;
+	structs_local.sin_port = htons(port);
+	structs_local.sin_addr.s_addr= INADDR_ANY;
+
+	int lg_adr = sizeof(addr_em);
+	bind(socklocal,(struct sockaddr*)&addr_em, lg_adr);
+		char * msg;
+	msg = malloc(lg_msg);
+
+	for (int i=0; i < nb_msg; i++)
+	{
+		sendto(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
+		afficher_message(msg, lg_msg);
+	} 
+
+	
+
+	//construire_message()
+	//sendto(socklocal, msg, sizeof(msg), 0, (struct sockaddr_in*)&structs_local, lg_adr);
+
+}
