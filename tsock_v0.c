@@ -19,7 +19,11 @@ données du réseau */
 #include <errno.h>
 
 void puitUDP(int port, int lg_msg, int nb_msg); 
-void sourceUDP(int port, char* msg); 
+void sourceUDP(int port, char* msg, int lg_msg, int nb_msg); 
+
+void puitTCP(int port, int lg_msg, int nb_msg); 
+void sourceTCP(int port, char* msg, int lg_msg, int nb_msg); 
+
 
 void main (int argc, char **argv)
 {
@@ -71,9 +75,24 @@ void main (int argc, char **argv)
 	char * destination; 
 	if (source == 1) {
 		printf("on est dans le source\n");
-		destination = argv[argc-2]; 
-	} else
+		
+
+		// udp source
+		destination = argv[argc-2];
+		if (proto == 0) {
+				if (nb_message== -1) nb_message=10; 
+				sourceUDP(port,destination, lg_msgs, nb_message); 
+			} 
+	} else {
 		printf("on est dans le puits\n");
+		// udp puits
+
+			if (proto == 0) {
+				puitUDP(port, lg_msgs, nb_message); 
+			}
+
+	}
+		
 
 	if (nb_message != -1) {
 		if (source == 1)
@@ -89,10 +108,6 @@ void main (int argc, char **argv)
 
 	}
 
-	if (proto == 0) {
-		if (source == 0)
-			puitUDP(port, lg_msgs, nb_message); 
-	}
 }
 
 void construire_message(char *message, char motif, int lg)
@@ -112,24 +127,16 @@ void afficher_message(char *message, int lg)
 
 void puitUDP(int port, int lg_msg, int nb_msg)
 {
-	
-
-	
-
 	/* Création socket udp (source & puits) */
 	int socklocal = socket(AF_INET,SOCK_DGRAM,0);
-
-	
 
 	/* Configuration : sockaddr_in */
 	struct sockaddr_in structs_local;
 	structs_local.sin_family = AF_INET;
 	structs_local.sin_port = htons(port);
 	structs_local.sin_addr.s_addr= INADDR_ANY;
-	
-
-
 	int lg_adr = sizeof(structs_local);
+
 	/* puits ==> réception & source ==> envoie*/
 	bind(socklocal,(struct sockaddr*)&structs_local, lg_adr);
 	char * msg;
@@ -140,39 +147,165 @@ void puitUDP(int port, int lg_msg, int nb_msg)
 	
 	/* source */
 	// construire le message
-	for (int i=0; i < nb_msg; i++)
-	{
-		recvfrom(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
-		afficher_message(msg, lg_msg);
-	} 
+	if (nb_msg != -1) {
+		for (int i=0; i < nb_msg; i++)
+		{
+			recvfrom(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
+			afficher_message(msg, lg_msg);
+		} 
+	} else {
+
+		while(1) {
+			recvfrom(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
+			afficher_message(msg, lg_msg);
+		}
+	}
 	/* Puits */
-	
+	close(socklocal); 
 	
 }
 
-void sourceUDP(int port, char* msg)
+void sourceUDP(int port, char* host, int lg_msg, int nb_msg)
 {
+	struct hostent *hp;
 	int socklocal = socket(AF_INET,SOCK_DGRAM,0);
 
-	struct sockaddr_in addr_em;
+	struct sockaddr_in addr_serv; 
+	memset((char *)&addr_serv, 0, sizeof(addr_serv));
+	addr_serv.sin_family = AF_INET;
+	addr_serv.sin_port = htons(port);
+	
+
+	if ((hp = gethostbyname(host)) == NULL)
+	{
+		printf("Erreur gethostbyname\n");
+		exit(1);
+	}
+	memcpy((char*)&(addr_serv.sin_addr),
+			hp->h_addr,
+			hp->h_length);
+
+	char * msg = malloc(sizeof(char)*lg_msg);
+
+	int lg_adr_serv = sizeof(addr_serv);
+	int octets_envoyes; 
+	for (int i=0; i < nb_msg; i++)
+	{
+		construire_message(msg,'a', lg_msg); 
+		octets_envoyes=sendto(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_serv,lg_adr_serv);
+		printf("envoi %d\n", octets_envoyes); 
+		afficher_message(msg, lg_msg);
+	} 
+	close(socklocal);
+
+}
+
+
+void puitTCP(int port, int lg_msg, int nb_msg)
+{
+	/* Création socket udp (source & puits) */
+	int socklocal = socket(AF_INET,SOCK_STREAM,0);
+	int sock_bis;
+	/* Configuration : sockaddr_in */
+	struct sockaddr_in adr_client;
 	structs_local.sin_family = AF_INET;
 	structs_local.sin_port = htons(port);
 	structs_local.sin_addr.s_addr= INADDR_ANY;
+	int lg_adr = sizeof(adr_client);
+	int lg_rec;
+	int max=10;
+	int lg_max = 30;
 
-	int lg_adr = sizeof(addr_em);
-	bind(socklocal,(struct sockaddr*)&addr_em, lg_adr);
-		char * msg;
+
+	/* puits ==> réception & source ==> envoie*/
+	bind(socklocal,(struct sockaddr*)&adr_client, lg_adr);
+	char * msg;
 	msg = malloc(lg_msg);
+	listen(socklocal, 5);
 
-	for (int i=0; i < nb_msg; i++)
+	if ((sock_bis = accept( sock,
+							(struct sockaddr*)&adr_client,
+							&lg_adr)) == -1 )
 	{
-		sendto(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
-		afficher_message(msg, lg_msg);
-	} 
+		printf("échec du accept\n");
+		exit(1);
+	}
+	for (i=0; i<max; i++)
+	{
+		if((lg_rec = read(sock_bi, msg, lg_max)) < 0)
+		{
+			printf("échec du read\n");
+			exit(1);
+			afficher_message(msg,lg_rec);
+		}
+	}
 
+
+	struct sockaddr_in addr_em;
+	int lg_adr_em = sizeof(addr_em); 
+	
+	/* source */
+	// construire le message
+	if (nb_msg != -1) {
+		for (int i=0; i < nb_msg; i++)
+		{
+			read(socklocal, msg,,(struct sockaddr *)&addr_em,lg_adr_em);
+			afficher_message(msg, lg_msg);
+		} 
+	} else {
+
+		while(1) {
+			recvfrom(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_em,lg_adr_em);
+			afficher_message(msg, lg_msg);
+		}
+	}
+	/* Puits */
+	close(socklocal); 
+	
+}
+
+
+
+/*void sourceTCP(int port, char* host, int lg_msg, int nb_msg)
+{
+	struct hostent *hp;
+	int socklocal = socket(AF_INET,SOCK_STREAM,0);
+	int sock_bis;
+
+	struct sockaddr_in addr_serv; 
+	memset((char *)&addr_serv, 0, sizeof(addr_serv));
+	addr_serv.sin_family = AF_INET;
+	addr_serv.sin_port = htons(port);
+	listen(socklocal, 5);
+	while(1)
+	{
+		if((sock_bis = accept(sock,(struct sockaddr*)&addr_serv)))
+	}
 	
 
-	//construire_message()
-	//sendto(socklocal, msg, sizeof(msg), 0, (struct sockaddr_in*)&structs_local, lg_adr);
+
+
+	if ((hp = gethostbyname(host)) == NULL)
+	{
+		printf("Erreur gethostbyname\n");
+		exit(1);
+	}
+	memcpy((char*)&(addr_serv.sin_addr),
+			hp->h_addr,
+			hp->h_length);
+
+	char * msg = malloc(sizeof(char)*lg_msg);
+
+	int lg_adr_serv = sizeof(addr_serv);
+	int octets_envoyes; 
+	for (int i=0; i < nb_msg; i++)
+	{
+		construire_message(msg,'a', lg_msg); 
+		octets_envoyes=sendto(socklocal, msg,lg_msg,0,(struct sockaddr *)&addr_serv,lg_adr_serv);
+		printf("envoi %d\n", octets_envoyes); 
+		afficher_message(msg, lg_msg);
+	} 
+	close(socklocal);
 
 }
+*/
