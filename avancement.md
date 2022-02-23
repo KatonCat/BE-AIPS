@@ -1,6 +1,6 @@
 Veuillez renseigner votre avancement à chaque étape achevée et testée et par défaut à la fin de chaque séance de TP 
 
-NOMs & prénoms du groupe étudiants :  "A RENSEIGNER SVP "
+NOMs & prénoms du groupe étudiants :  AKKAR ZAIBEL Anouar et RIBEIRO BADEJO Marco GROUPE D
 
 # Avancement sur la Partie TP AIPS - Mise en oeuvre de l'application tsock 
 
