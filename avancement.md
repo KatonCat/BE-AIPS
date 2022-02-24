@@ -33,11 +33,11 @@ La version 2 intègre l’utilisation de TCP pour l’échange des messages. Veu
 
 [ x] la création du socket TCP local du puit et la construction de son adresse est correcte
 
-[ ] l'acceptation de la demande d'établissement de connexion de la primitive "accept" est effective 
+[ x] l'acceptation de la demande d'établissement de connexion de la primitive "accept" est effective 
 
-[ ] la réception et l'affichage des messages reçus  (en utilisant nc ou la version "enseignant" de tsock comme source)  sont corrects 
+[x ] la réception et l'affichage des messages reçus  (en utilisant nc ou la version "enseignant" de tsock comme source)  sont corrects 
 
-[ ] l'échange de messages entre vos versions source et puit de la version 1 de "tsock" est opérationnel
+[ x] l'échange de messages entre vos versions source et puit de la version 1 de "tsock" est opérationnel
 
 ## Avancement version 3 de tsock
 

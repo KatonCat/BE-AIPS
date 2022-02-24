@@ -22,7 +22,7 @@ void puitUDP(int port, int lg_msg, int nb_msg);
 void sourceUDP(int port, char* msg, int lg_msg, int nb_msg); 
 
 void puitTCP(int port, int lg_msg, int nb_msg); 
-void sourceTCP(int port, char* msg, int lg_msg, int nb_msg); 
+void sourceTCP(int port, char* host, int lg_msg, int nb_msg); 
 
 
 void main (int argc, char **argv)
@@ -72,36 +72,6 @@ void main (int argc, char **argv)
 		exit(1) ;
 	}
 
-	char * destination; 
-	if (source == 1) {
-		printf("on est dans le source\n");
-		
-
-		// udp source
-		destination = argv[argc-2];
-		if (proto == 0) {
-				if (nb_message== -1) nb_message=10; 
-				sourceUDP(port,destination, lg_msgs, nb_message); 
-			} 
-		else if (proto==1)
-		{
-			if (nb_message== -1) nb_message=10; 
-			sourceUDP(port,destination, lg_msgs, nb_message); 
-		}
-	} 
-	else {
-			printf("on est dans le puits\n");
-		// udp puits
-
-			if (proto == 0) {
-				puitUDP(port, lg_msgs, nb_message); 
-			}
-			else if (proto == 1){
-				puitTCP(port, lg_msgs, nb_message);
-			}
-
-	}
-		
 
 	if (nb_message != -1) {
 		if (source == 1)
@@ -113,9 +83,43 @@ void main (int argc, char **argv)
 			nb_message = 10 ;
 			printf("nb de tampons à envoyer = 10 par défaut\n");
 		} else
-		printf("nb de tampons à envoyer = infini\n");
+		printf("nb de tampons à recevoir = infini\n");
 
 	}
+
+	char * destination; 
+	if (source == 1) {
+		printf("on est dans le source\n");
+		
+
+		// udp
+		destination = argv[argc-2];
+		if (proto == 0) {
+				if (nb_message== -1) nb_message=10; 
+				sourceUDP(port,destination, lg_msgs, nb_message); 
+			} 
+		// tcp
+		else if (proto==1)
+		{
+			if (nb_message== -1) nb_message=10; 
+			sourceTCP(port,destination, lg_msgs, nb_message); 
+		}
+	} 
+	else {
+			printf("on est dans le puits\n");
+		// udp
+
+			if (proto == 0) {
+				puitUDP(port, lg_msgs, nb_message); 
+			}
+		// tcp
+			else if (proto == 1){
+				puitTCP(port, lg_msgs, nb_message);
+			}
+
+	}
+		
+
 
 }
 
@@ -206,7 +210,6 @@ void sourceUDP(int port, char* host, int lg_msg, int nb_msg)
 		afficher_message(msg, lg_msg);
 	} 
 	close(socklocal);
-
 }
 
 
@@ -246,10 +249,6 @@ void puitTCP(int port, int lg_msg, int nb_msg)
 	}
 
 
-		
-
-	
-
 	if (nb_msg != -1) {
 		for (int i=0; i < nb_msg; i++)
 		{
@@ -259,15 +258,13 @@ void puitTCP(int port, int lg_msg, int nb_msg)
 			exit(1);
 			}
 			afficher_message(msg, lg_rec);
-			if(lg_rec==0) //arrêt de l'affichage si toutes les données envoyées ont bien été reçues et que les affichages sont vides
-                break;
+
     
 		} 
 	} else {
-		while(lg_rec !=0) {
+		while((lg_rec = read(sock_bis,msg,lg_msg)) != 0) {
 
-
-			if((lg_rec = read(sock_bis, msg, lg_max)) < 0)
+			if(lg_rec < 0)
 			{
 			printf("échec du read\n");
 			exit(1);
@@ -282,13 +279,14 @@ void puitTCP(int port, int lg_msg, int nb_msg)
 	free(msg);
 	close(socklocal);
 	
-	
 }
-
 
 
 void sourceTCP(int port, char* host, int lg_msg, int nb_msg)
 {
+
+	//Création des variables et des adresses
+
 	struct hostent *hp;
 	int socklocal = socket(AF_INET,SOCK_STREAM,0);
 	int sock_bis;
@@ -300,23 +298,24 @@ void sourceTCP(int port, char* host, int lg_msg, int nb_msg)
 
 	int lg_adr_serv = sizeof(addr_serv);
 
-	if((sock_bis = connect(socklocal,(struct sockaddr*)&addr_serv,lg_adr_serv))==-1)
-	{
-		printf("échec du connect\n");
-		exit(1);
-	}
-
 	if ((hp = gethostbyname(host)) == NULL)
 	{
 		printf("Erreur gethostbyname\n");
 		exit(1);
 	}
 
-	memcpy((char*)&(addr_serv.sin_addr),
+	memcpy((char*)&(addr_serv.sin_addr.s_addr),
 			hp->h_addr,
 			hp->h_length);
 
 	char * msg = malloc(sizeof(char)*lg_msg);
+
+
+	if((sock_bis = connect(socklocal,(struct sockaddr*)&addr_serv,lg_adr_serv))==-1)
+	{
+		printf("échec du connect\n");
+		exit(1);
+	}
 
 
 	int octets_envoyes; 
@@ -324,7 +323,7 @@ void sourceTCP(int port, char* host, int lg_msg, int nb_msg)
 	{	
 
 		construire_message(msg,'a', lg_msg);
-		if((octets_envoyes=write(sock_bis, msg,lg_msg)) < 0)
+		if((octets_envoyes = send(socklocal, msg, lg_msg, 0)) < 0)
 			{
 			printf("échec du write\n");
 			exit(1);
@@ -336,7 +335,6 @@ void sourceTCP(int port, char* host, int lg_msg, int nb_msg)
 
 	free(msg);
 	close(socklocal);
-	
 	
 }
 
